@@ -1,10 +1,10 @@
 import sys
 import pandas as pd
 import numpy as np
-from scipy import stats
+import matplotlib.pyplot as plt
 
-def load_data(file_path):
-    """Lexon të dhënat nga CSV dhe i kthen si DataFrame"""
+def load_csv(file_path):
+    """Lexon CSV dhe kthen një DataFrame"""
     try:
         df = pd.read_csv(file_path)
         return df
@@ -13,90 +13,79 @@ def load_data(file_path):
         sys.exit(1)
 
 def calculate_stats(df, column):
-    """Llogarit statistikat bazë për një kolonë të dhënë"""
+    """Llogarit statistikat bazë për një kolonë të caktuar"""
     if column not in df.columns:
-        print(f"Kolona '{column}' nuk u gjet në të dhëna.")
+        print(f"Kolona '{column}' nuk u gjet.")
         return
-    data = df[column]
-    print(f"Statistikat për {column}:")
-    print(f"Mesatarja: {np.mean(data):.2f}")
-    print(f"Mediana: {np.median(data):.2f}")
-    print(f"Modaliteti: {stats.mode(data, keepdims=True)[0][0]}")
-    print(f"Devijimi Standard: {np.std(data, ddof=1):.2f}")
+    
+    data = df[column].dropna()
+    mean = np.mean(data)
+    median = np.median(data)
+    mode = data.mode().values
+    std_dev = np.std(data)
+    
+    print(f"Statistikat për '{column}':")
+    print(f"  Mesatarja: {mean}")
+    print(f"  Mediana: {median}")
+    print(f"  Moda: {mode}")
+    print(f"  Devijimi standard: {std_dev}")
 
-def generate_text_histogram(df, column, bins=10):
-    """Gjeneron një histogram të bazuar në tekst"""
+def plot_histogram(df, column, bins=10):
+    """Krijon histogram për një kolonë të dhënë"""
     if column not in df.columns:
-        print(f"Kolona '{column}' nuk u gjet në të dhëna.")
+        print(f"Kolona '{column}' nuk u gjet.")
         return
-    data = df[column]
-    hist, bin_edges = np.histogram(data, bins=bins)
-    print(f"Histogrami për {column}:")
-    for i in range(len(hist)):
-        print(f"{bin_edges[i]:.2f} - {bin_edges[i+1]:.2f}: {'#' * hist[i]}")
+    
+    data = df[column].dropna()
+    plt.hist(data, bins=bins, edgecolor='black')
+    plt.xlabel(column)
+    plt.ylabel("Frekuenca")
+    plt.title(f"Histogram për {column}")
+    plt.show()
 
-def find_correlation(df, col1, col2):
+def calculate_correlation(df, col1, col2):
     """Gjen korrelacionin mes dy kolonave"""
     if col1 not in df.columns or col2 not in df.columns:
-        print("Njëra nga kolonat nuk u gjet në të dhëna.")
+        print(f"Njëra ose të dyja kolonat '{col1}', '{col2}' nuk u gjetën.")
         return
+    
     correlation = df[col1].corr(df[col2])
-    print(f"Korrelacioni mes {col1} dhe {col2}: {correlation:.2f}")
+    print(f"Korrelacioni mes '{col1}' dhe '{col2}': {correlation}")
 
 def detect_outliers(df, column, threshold=2.0):
-    """Identifikon pikat e jashtme duke përdorur Z-score"""
+    """Gjen outliers bazuar në devijimin standard"""
     if column not in df.columns:
-        print(f"Kolona '{column}' nuk u gjet në të dhëna.")
+        print(f"Kolona '{column}' nuk u gjet.")
         return
-    data = df[column]
-    z_scores = np.abs(stats.zscore(data))
-    outliers = df[z_scores > threshold]
-    print(f"Pikat e jashtme për {column} (Threshold={threshold}):")
-    print(outliers)
+    
+    data = df[column].dropna()
+    mean = np.mean(data)
+    std_dev = np.std(data)
+    outliers = data[(data < mean - threshold * std_dev) | (data > mean + threshold * std_dev)]
+    
+    print(f"Vlerat jashtë normales për '{column}':")
+    print(outliers.to_list())
 
 def main():
-    if len(sys.argv) < 4:
-        print("Përdorimi: python data_analysis.py <file> <command> <column> [options]")
-        return
+    if len(sys.argv) < 3:
+        print("Përdorimi: python mini-project.py <file.csv> <command> [opsione]")
+        sys.exit(1)
     
     file_path = sys.argv[1]
     command = sys.argv[2]
-    column = sys.argv[3]
-    df = load_data(file_path)
+    df = load_csv(file_path)
     
-    if command == "stats":
-        calculate_stats(df, column)
-    elif command == "histogram":
-        bins = int(sys.argv[4]) if len(sys.argv) > 4 else 10
-        generate_text_histogram(df, column, bins)
-    elif command == "correlation":
-        if len(sys.argv) < 5:
-            print("Përdorimi: python data_analysis.py <file> correlation <column1> <column2>")
-            return
-        find_correlation(df, column, sys.argv[4])
-    elif command == "outliers":
-        threshold = float(sys.argv[4]) if len(sys.argv) > 4 else 2.0
-        detect_outliers(df, column, threshold)
+    if command == "stats" and len(sys.argv) == 4:
+        calculate_stats(df, sys.argv[3])
+    elif command == "histogram" and len(sys.argv) == 5:
+        plot_histogram(df, sys.argv[3], int(sys.argv[4]))
+    elif command == "correlation" and len(sys.argv) == 5:
+        calculate_correlation(df, sys.argv[3], sys.argv[4])
+    elif command == "outliers" and len(sys.argv) == 5:
+        detect_outliers(df, sys.argv[3], float(sys.argv[4]))
     else:
-        print("Komandë e panjohur.")
+        print("Komandë e panjohur ose argumente të pamjaftueshme.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
-
-if __name__ == "__main__":
-    # Krijo një DataFrame testues
-    data = {
-        "column1": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-        "column2": [5, 15, 25, 35, 45, 55, 65, 75, 85, 95]
-    }
-    df = pd.DataFrame(data)
-
-    # Thirr funksionet direkt
-    calculate_stats(df, "column1")
-    print("\n")
-    generate_text_histogram(df, "column1", bins=5)
-    print("\n")
-    find_correlation(df, "column1", "column2")
-    print("\n")
-    detect_outliers(df, "column1", threshold=1.5)
-    print("\n")
